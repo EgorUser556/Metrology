@@ -1,5 +1,5 @@
 import { useState } from "react";
-import "./App.css";
+import "./styles/App.css";
 import { analyzeRustCode } from "./parser/halstead";
 import type { HalsteadMetrics } from "./parser/types"
 
@@ -93,7 +93,6 @@ function App() {
     return (
         <main className="app">
             <header>
-                <p className="eyebrow">Курсовая работа по метрикам размера программ</p>
                 <h1>Анализатор метрик Холстеда для Rust</h1>
                 <p className="subtitle">
                     Вставьте исходный код Rust и получите частоты операторов,
@@ -122,7 +121,8 @@ function App() {
                 <>
                     <section className="metrics-section">
                         <h2>Базовые метрики</h2>
-                        <div className="metric-grid">
+
+                        <div className="metric-grid basic-metric-grid">
                             <MetricCard
                                 name="η₁"
                                 value={metrics.eta1}
@@ -143,17 +143,12 @@ function App() {
                                 value={metrics.n2}
                                 description="общее число операндов"
                             />
-                            <MetricCard
-                                name="f₁ⱼ"
-                                value={metrics.operators.length}
-                                description="частоты операторов — в таблице"
-                            />
-                            <MetricCard
-                                name="f₂ᵢ"
-                                value={metrics.operands.length}
-                                description="частоты операндов — в таблице"
-                            />
                         </div>
+
+                        <p className="metrics-note">
+                            Частоты f₁ⱼ каждого оператора и f₂ᵢ каждого операнда приведены
+                            в столбце «Частота» соответствующих таблиц.
+                        </p>
                     </section>
 
                     <section className="metrics-section">

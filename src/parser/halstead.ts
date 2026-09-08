@@ -1,8 +1,130 @@
-import type { FrequencyItem, HalsteadMetrics } from './types';
-import { KEYWORD_OPERATORS, IGNORED_WORDS,
-         TYPE_NAMES, SYMBOL_OPERATORS } from './config';
+export type FrequencyItem = {
+    token: string;
+    count: number;
+};
 
-const OPERATOR_PATTERN = SYMBOL_OPERATORS
+export type HalsteadMetrics = {
+    eta1: number;
+    eta2: number;
+    n1: number;
+    n2: number;
+    vocabulary: number;
+    length: number;
+    volume: number;
+    operators: FrequencyItem[];
+    operands: FrequencyItem[];
+};
+
+const CONTROL_OPERATORS = new Set([
+    "if",
+    "else",
+    "match",
+    "for",
+    "while",
+    "loop",
+    "break",
+    "continue",
+    "return",
+]);
+
+const DECLARATION_WORDS = new Set(["fn", "let", "const"]);
+
+const IGNORED_WORDS = new Set([
+    "as",
+    "async",
+    "await",
+    "crate",
+    "dyn",
+    "enum",
+    "extern",
+    "false",
+    "impl",
+    "in",
+    "mod",
+    "move",
+    "mut",
+    "pub",
+    "ref",
+    "self",
+    "Self",
+    "static",
+    "struct",
+    "super",
+    "trait",
+    "true",
+    "type",
+    "unsafe",
+    "use",
+    "where",
+]);
+
+const TYPE_NAMES = new Set([
+    "bool",
+    "char",
+    "str",
+    "String",
+    "Vec",
+    "Option",
+    "Result",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "i128",
+    "isize",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "u128",
+    "usize",
+    "f32",
+    "f64",
+]);
+
+const SYMBOL_OPERATORS = [
+    "..=",
+    ">>=",
+    "<<=",
+    "==",
+    "!=",
+    ">=",
+    "<=",
+    "&&",
+    "||",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "&=",
+    "|=",
+    "^=",
+    "->",
+    "=>",
+    "::",
+    "..",
+    "<<",
+    ">>",
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "=",
+    "<",
+    ">",
+    "&",
+    "|",
+    "^",
+    "!",
+    ".",
+    ";",
+    ",",
+    ":",
+];
+
+const ESCAPED_OPERATORS = SYMBOL_OPERATORS
     .map((operator) => operator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
     .join("|");
 
@@ -10,47 +132,92 @@ const TOKEN_PATTERN = new RegExp(
     [
         String.raw`"(?:\\.|[^"\\])*"`,
         String.raw`'(?:\\.|[^'\\])*'`,
-        String.raw`\b\d+(?:\.\d+)?\b`,
+        String.raw`\b\d+(?:\.\d+)?(?:_[A-Za-z0-9]+)?\b`,
         String.raw`\b[A-Za-z_][A-Za-z0-9_]*\b`,
-        OPERATOR_PATTERN,
+        ESCAPED_OPERATORS,
         String.raw`[(){}\[\]]`,
     ].join("|"),
     "g",
 );
 
-const removeComments = (code: string): string => {
+function removeComments(code: string): string {
     return code
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
 }
 
-const addToken = (tokens: Map<string, number>, token: string) => {
-    tokens.set(token, (tokens.get(token) ?? 0) + 1);
+function addToken(map: Map<string, number>, token: string): void {
+    map.set(token, (map.get(token) ?? 0) + 1);
 }
 
-const toFrequencyItems = (tokens: Map<string, number>): FrequencyItem[] => {
-    return [...tokens.entries()]
+function getTotal(map: Map<string, number>): number {
+    return [...map.values()].reduce((sum, count) => sum + count, 0);
+}
+
+function toFrequencyItems(map: Map<string, number>): FrequencyItem[] {
+    return [...map.entries()]
         .map(([token, count]) => ({ token, count }))
         .sort((a, b) => b.count - a.count || a.token.localeCompare(b.token));
 }
 
-const isLiteral = (token: string): boolean => {
-    return (
-        /^"(?:\\.|[^"\\])*"$/.test(token) ||
-        /^'(?:\\.|[^'\\])*'$/.test(token) ||
-        /^\d+(?:\.\d+)?$/.test(token)
-    );
-}
-
-const isIdentifier = (token: string): boolean => {
+function isIdentifier(token: string): boolean {
     return /^[A-Za-z_][A-Za-z0-9_]*$/.test(token);
 }
 
-const isFunctionCall = (tokens: string[], index: number): boolean => {
+function isLiteral(token: string): boolean {
+    return (
+        /^"(?:\\.|[^"\\])*"$/.test(token) ||
+        /^'(?:\\.|[^'\\])*'$/.test(token) ||
+        /^\d+(?:\.\d+)?(?:_[A-Za-z0-9]+)?$/.test(token)
+    );
+}
+
+// function isOpeningBracket(token: string): boolean {
+//     return token === "(" || token === "{" || token === "[";
+// }
+//
+// function bracketOperator(token: string): string {
+//     if (token === "(") return "()";
+//     if (token === "{") return "{}";
+//     return "[]";
+// }
+
+// function isFunctionDeclaration(tokens: string[], index: number): boolean {
+//     return tokens[index - 1] === "fn";
+// }
+
+function isPathSegment(tokens: string[], index: number): boolean {
+    return tokens[index + 1] === "::" || tokens[index - 1] === "::";
+}
+
+function isMacroCall(tokens: string[], index: number): boolean {
+    return tokens[index + 1] === "!" && tokens[index + 2] === "(";
+}
+
+function isFunctionCall(tokens: string[], index: number): boolean {
     return tokens[index + 1] === "(";
 }
 
-export const analyzeRustCode = (code: string): HalsteadMetrics => {
+function isTypeBracket(tokens: string[], index: number): boolean {
+    return tokens[index - 1] === "&";
+}
+
+function isCallOpeningBracket(tokens: string[], index: number): boolean {
+    const previous = tokens[index - 1];
+    const beforePrevious = tokens[index - 2];
+
+    const isFunctionOrMethodCall =
+        previous !== undefined && isIdentifier(previous);
+
+    const isMacroCall =
+        previous === "!" &&
+        beforePrevious !== undefined &&
+        isIdentifier(beforePrevious);
+
+    return isFunctionOrMethodCall || isMacroCall;
+}
+
+export function analyzeRustCode(code: string): HalsteadMetrics {
     const cleanCode = removeComments(code);
     const tokens = cleanCode.match(TOKEN_PATTERN) ?? [];
 
@@ -60,38 +227,60 @@ export const analyzeRustCode = (code: string): HalsteadMetrics => {
     for (let index = 0; index < tokens.length; index += 1) {
         const token = tokens[index];
 
-        if (SYMBOL_OPERATORS.includes(token)) {
-            addToken(operators, token);
+        if (token === "{") {
+            addToken(operators, "{}");
             continue;
         }
 
-        if (token === "(" || token === ")") {
-            if (token === "(") {
+        if (token === "[" && !isTypeBracket(tokens, index)) {
+            addToken(operators, "[]");
+            continue;
+        }
+
+        if (token === "(") {
+            if (!isCallOpeningBracket(tokens, index)) {
                 addToken(operators, "()");
             }
             continue;
         }
 
-        if (token === "{" || token === "}") {
-            if (token === "{") {
-                addToken(operators, "{}");
-            }
+        if (token === ")" || token === "}" || token === "]") {
             continue;
         }
 
-        if (token === "[" || token === "]") {
-            if (token === "[") {
-                addToken(operators, "[]");
+
+        if (SYMBOL_OPERATORS.includes(token)) {
+            const previous = tokens[index - 1];
+            const next = tokens[index + 1];
+
+            if (token === "!" && previous && next === "(") {
+                continue;
             }
+
+            addToken(operators, token);
             continue;
         }
 
-        if (KEYWORD_OPERATORS.has(token)) {
+        if (CONTROL_OPERATORS.has(token)) {
+            addToken(operators, token);
+            continue;
+        }
+
+        if (DECLARATION_WORDS.has(token)) {
             addToken(operators, token);
             continue;
         }
 
         if (IGNORED_WORDS.has(token) || TYPE_NAMES.has(token)) {
+            continue;
+        }
+
+        if (isPathSegment(tokens, index)) {
+            continue;
+        }
+
+        if (isMacroCall(tokens, index)) {
+            addToken(operators, `${token}!()`);
             continue;
         }
 
@@ -107,11 +296,11 @@ export const analyzeRustCode = (code: string): HalsteadMetrics => {
 
     const eta1 = operators.size;
     const eta2 = operands.size;
-    const n1 = [...operators.values()].reduce((sum, count) => sum + count, 0);
-    const n2 = [...operands.values()].reduce((sum, count) => sum + count, 0);
+    const n1 = getTotal(operators);
+    const n2 = getTotal(operands);
     const vocabulary = eta1 + eta2;
     const length = n1 + n2;
-    const volume = vocabulary > 0 ? length * Math.log2(vocabulary) : 0;
+    const volume = vocabulary === 0 ? 0 : length * Math.log2(vocabulary);
 
     return {
         eta1,
