@@ -1,5 +1,5 @@
 import type { FrequencyItem, HalsteadMetrics } from "./types";
-import { CONTROL_OPERATORS, DECLARATION_WORDS, IGNORED_WORDS, TYPE_NAMES, SYMBOL_OPERATORS }  from "./config";
+import { CONTROL_OPERATORS, IGNORED_WORDS, TYPE_NAMES, SYMBOL_OPERATORS }  from "./config";
 
 const ESCAPED_OPERATORS = SYMBOL_OPERATORS
     .map((operator) => operator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -133,11 +133,6 @@ export const analyzeRustCode = (code: string): HalsteadMetrics => {
         }
 
         if (CONTROL_OPERATORS.has(token)) {
-            addToken(operators, token);
-            continue;
-        }
-
-        if (DECLARATION_WORDS.has(token)) {
             addToken(operators, token);
             continue;
         }

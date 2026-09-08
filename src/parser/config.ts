@@ -10,12 +10,6 @@ export const CONTROL_OPERATORS = new Set([
     "return",
 ]);
 
-export const DECLARATION_WORDS = new Set([
-    "fn",
-    "let",
-    "const",
-]);
-
 export const IGNORED_WORDS = new Set([
     "as",
     "async",
@@ -43,6 +37,9 @@ export const IGNORED_WORDS = new Set([
     "unsafe",
     "use",
     "where",
+    "fn",
+    "let",
+    "const",
 ]);
 
 export const TYPE_NAMES = new Set([
