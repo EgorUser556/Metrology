@@ -1,85 +1,17 @@
 import { useState } from "react";
-import "./styles/App.css";
-import { analyzeRustCode } from "./parser/halstead";
-import type { HalsteadMetrics } from "./parser/types"
+import "../../styles/App.css";
+import { analyzeRustCode } from "../../parser/halstead";
+import type { HalsteadMetrics } from "../../parser/types"
+import INITIAL_CODE from "./config";
+import MetricCard from "../MetricCard/index"
+import FrequencyTable from "../FrequencyTable";
 
-const INITIAL_CODE = `fn main() {
-    let mut sum = 0;
-
-    for number in 1..=5 {
-        sum += number;
-    }
-
-    if sum > 10 {
-        println!("Сумма больше 10: {}", sum);
-    }
-}`;
-
-function MetricCard({
-                        name,
-                        value,
-                        description,
-                    }: {
-    name: string;
-    value: string | number;
-    description: string;
-}) {
-    return (
-        <article className="metric-card">
-            <span className="metric-name">{name}</span>
-            <strong>{value}</strong>
-            <small>{description}</small>
-        </article>
-    );
-}
-
-function FrequencyTable({
-                            title,
-                            firstColumn,
-                            rows,
-                        }: {
-    title: string;
-    firstColumn: string;
-    rows: HalsteadMetrics["operators"];
-}) {
-    return (
-        <section className="table-section">
-            <h2>{title}</h2>
-
-            {rows.length === 0 ? (
-                <p className="empty-message">Элементы не найдены.</p>
-            ) : (
-                <table>
-                    <thead>
-                    <tr>
-                        <th>№</th>
-                        <th>{firstColumn}</th>
-                        <th>Частота</th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    {rows.map((row, index) => (
-                        <tr key={row.token}>
-                            <td>{index + 1}</td>
-                            <td>
-                                <code>{row.token}</code>
-                            </td>
-                            <td>{row.count}</td>
-                        </tr>
-                    ))}
-                    </tbody>
-                </table>
-            )}
-        </section>
-    );
-}
-
-function App() {
+const App = () => {
     const [code, setCode] = useState(INITIAL_CODE);
     const [metrics, setMetrics] = useState<HalsteadMetrics | null>(null);
     const [error, setError] = useState("");
 
-    function handleAnalyze() {
+    const handleAnalyze = ()=> {
         if (!code.trim()) {
             setMetrics(null);
             setError("Вставьте Rust-код для анализа.");
