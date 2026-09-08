@@ -1,128 +1,5 @@
-export type FrequencyItem = {
-    token: string;
-    count: number;
-};
-
-export type HalsteadMetrics = {
-    eta1: number;
-    eta2: number;
-    n1: number;
-    n2: number;
-    vocabulary: number;
-    length: number;
-    volume: number;
-    operators: FrequencyItem[];
-    operands: FrequencyItem[];
-};
-
-const CONTROL_OPERATORS = new Set([
-    "if",
-    "else",
-    "match",
-    "for",
-    "while",
-    "loop",
-    "break",
-    "continue",
-    "return",
-]);
-
-const DECLARATION_WORDS = new Set(["fn", "let", "const"]);
-
-const IGNORED_WORDS = new Set([
-    "as",
-    "async",
-    "await",
-    "crate",
-    "dyn",
-    "enum",
-    "extern",
-    "false",
-    "impl",
-    "in",
-    "mod",
-    "move",
-    "mut",
-    "pub",
-    "ref",
-    "self",
-    "Self",
-    "static",
-    "struct",
-    "super",
-    "trait",
-    "true",
-    "type",
-    "unsafe",
-    "use",
-    "where",
-]);
-
-const TYPE_NAMES = new Set([
-    "bool",
-    "char",
-    "str",
-    "String",
-    "Vec",
-    "Option",
-    "Result",
-    "i8",
-    "i16",
-    "i32",
-    "i64",
-    "i128",
-    "isize",
-    "u8",
-    "u16",
-    "u32",
-    "u64",
-    "u128",
-    "usize",
-    "f32",
-    "f64",
-]);
-
-const SYMBOL_OPERATORS = [
-    "..=",
-    ">>=",
-    "<<=",
-    "==",
-    "!=",
-    ">=",
-    "<=",
-    "&&",
-    "||",
-    "+=",
-    "-=",
-    "*=",
-    "/=",
-    "%=",
-    "&=",
-    "|=",
-    "^=",
-    "->",
-    "=>",
-    "::",
-    "..",
-    "<<",
-    ">>",
-    "+",
-    "-",
-    "*",
-    "/",
-    "%",
-    "=",
-    "<",
-    ">",
-    "&",
-    "|",
-    "^",
-    "!",
-    ".",
-    ";",
-    ",",
-    ":",
-];
+import type { FrequencyItem, HalsteadMetrics } from "./types";
+import { CONTROL_OPERATORS, DECLARATION_WORDS, IGNORED_WORDS, TYPE_NAMES, SYMBOL_OPERATORS }  from "./config";
 
 const ESCAPED_OPERATORS = SYMBOL_OPERATORS
     .map((operator) => operator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
@@ -140,31 +17,31 @@ const TOKEN_PATTERN = new RegExp(
     "g",
 );
 
-function removeComments(code: string): string {
+const removeComments = (code: string): string => {
     return code
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
 }
 
-function addToken(map: Map<string, number>, token: string): void {
+const addToken = (map: Map<string, number>, token: string) => {
     map.set(token, (map.get(token) ?? 0) + 1);
 }
 
-function getTotal(map: Map<string, number>): number {
+const getTotal = (map: Map<string, number>): number => {
     return [...map.values()].reduce((sum, count) => sum + count, 0);
 }
 
-function toFrequencyItems(map: Map<string, number>): FrequencyItem[] {
+const toFrequencyItems =(map: Map<string, number>): FrequencyItem[] => {
     return [...map.entries()]
         .map(([token, count]) => ({ token, count }))
         .sort((a, b) => b.count - a.count || a.token.localeCompare(b.token));
 }
 
-function isIdentifier(token: string): boolean {
+const isIdentifier = (token: string): boolean => {
     return /^[A-Za-z_][A-Za-z0-9_]*$/.test(token);
 }
 
-function isLiteral(token: string): boolean {
+const isLiteral = (token: string): boolean => {
     return (
         /^"(?:\\.|[^"\\])*"$/.test(token) ||
         /^'(?:\\.|[^'\\])*'$/.test(token) ||
@@ -172,37 +49,19 @@ function isLiteral(token: string): boolean {
     );
 }
 
-// function isOpeningBracket(token: string): boolean {
-//     return token === "(" || token === "{" || token === "[";
-// }
-//
-// function bracketOperator(token: string): string {
-//     if (token === "(") return "()";
-//     if (token === "{") return "{}";
-//     return "[]";
-// }
-
-// function isFunctionDeclaration(tokens: string[], index: number): boolean {
-//     return tokens[index - 1] === "fn";
-// }
-
-function isPathSegment(tokens: string[], index: number): boolean {
+const isPathSegment = (tokens: string[], index: number): boolean => {
     return tokens[index + 1] === "::" || tokens[index - 1] === "::";
 }
 
-function isMacroCall(tokens: string[], index: number): boolean {
+const isMacroCall = (tokens: string[], index: number): boolean => {
     return tokens[index + 1] === "!" && tokens[index + 2] === "(";
 }
 
-function isFunctionCall(tokens: string[], index: number): boolean {
+const isFunctionCall = (tokens: string[], index: number): boolean => {
     return tokens[index + 1] === "(";
 }
 
-function isTypeBracket(tokens: string[], index: number): boolean {
-    return tokens[index - 1] === "&";
-}
-
-function isCallOpeningBracket(tokens: string[], index: number): boolean {
+const isCallOpeningBracket = (tokens: string[], index: number): boolean => {
     const previous = tokens[index - 1];
     const beforePrevious = tokens[index - 2];
 
@@ -217,7 +76,7 @@ function isCallOpeningBracket(tokens: string[], index: number): boolean {
     return isFunctionOrMethodCall || isMacroCall;
 }
 
-export function analyzeRustCode(code: string): HalsteadMetrics {
+export const analyzeRustCode = (code: string): HalsteadMetrics => {
     const cleanCode = removeComments(code);
     const tokens = cleanCode.match(TOKEN_PATTERN) ?? [];
 
@@ -232,7 +91,7 @@ export function analyzeRustCode(code: string): HalsteadMetrics {
             continue;
         }
 
-        if (token === "[" && !isTypeBracket(tokens, index)) {
+        if (token === "[") {
             addToken(operators, "[]");
             continue;
         }
