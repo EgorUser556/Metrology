@@ -61,19 +61,8 @@ const isFunctionCall = (tokens: string[], index: number): boolean => {
     return tokens[index + 1] === "(";
 }
 
-const isCallOpeningBracket = (tokens: string[], index: number): boolean => {
-    const previous = tokens[index - 1];
-    const beforePrevious = tokens[index - 2];
-
-    const isFunctionOrMethodCall =
-        previous !== undefined && isIdentifier(previous);
-
-    const isMacroCall =
-        previous === "!" &&
-        beforePrevious !== undefined &&
-        isIdentifier(beforePrevious);
-
-    return isFunctionOrMethodCall || isMacroCall;
+const isFunctionDeclaration = (tokens: string[], index: number): boolean => {
+    return tokens[index - 1] === "fn";
 }
 
 export const analyzeRustCode = (code: string): HalsteadMetrics => {
@@ -97,9 +86,32 @@ export const analyzeRustCode = (code: string): HalsteadMetrics => {
         }
 
         if (token === "(") {
-            if (!isCallOpeningBracket(tokens, index)) {
+            const previous = tokens[index - 1];
+            const beforePrevious = tokens[index - 2];
+
+            const isFunctionCall =
+                previous !== undefined &&
+                isIdentifier(previous);
+
+            const isMacroCall =
+                previous === "!" &&
+                beforePrevious !== undefined &&
+                isIdentifier(beforePrevious);
+
+            const isFunctionDeclaration =
+                beforePrevious === "fn" &&
+                previous !== undefined &&
+                isIdentifier(previous);
+
+            const isGroupingBracket =
+                !isFunctionCall &&
+                !isMacroCall &&
+                !isFunctionDeclaration;
+
+            if (isGroupingBracket) {
                 addToken(operators, "()");
             }
+
             continue;
         }
 
@@ -131,6 +143,10 @@ export const analyzeRustCode = (code: string): HalsteadMetrics => {
         }
 
         if (IGNORED_WORDS.has(token) || TYPE_NAMES.has(token)) {
+            continue;
+        }
+
+        if (isFunctionDeclaration(tokens, index)) {
             continue;
         }
 
