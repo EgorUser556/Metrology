@@ -40,6 +40,7 @@ export const IGNORED_WORDS = new Set([
     "fn",
     "let",
     "const",
+    "Write",
 ]);
 
 export const TYPE_NAMES = new Set([
