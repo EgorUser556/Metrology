@@ -7,12 +7,12 @@ const ESCAPED_OPERATORS = SYMBOL_OPERATORS
 
 const TOKEN_PATTERN = new RegExp(
     [
-        String.raw`"(?:\\.|[^"\\])*"`,
-        String.raw`'(?:\\.|[^'\\])*'`,
-        String.raw`\b\d+(?:\.\d+)?(?:_[A-Za-z0-9]+)?\b`,
-        String.raw`\b[A-Za-z_][A-Za-z0-9_]*\b`,
+        String.raw`"(?:\\.|[^"\\])*"`,   //строковые литералы
+        String.raw`'(?:\\.|[^'\\])*'`,   //символьные литералы
+        String.raw`\b\d+(?:\.\d+)?(?:_[A-Za-z0-9]+)?\b`,  //целые и дробные числа
+        String.raw`\b[A-Za-z_][A-Za-z0-9_]*\b`,   //ключевые слова
         ESCAPED_OPERATORS,
-        String.raw`[(){}\[\]]`,
+        String.raw`[(){}\[\]]`, //скобки
     ].join("|"),
     "g",
 );
