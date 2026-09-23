@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "../../styles/App.css";
-import { analyzeRustCode } from "../../parser/halstead";
-import type { HalsteadMetrics } from "../../parser/types"
+import { analyzeRustCode } from "../../parser/halstead/halstead.ts";
+import type { HalsteadMetrics } from "../../parser/halstead/types.ts"
 import INITIAL_CODE from "./config.ts";
 import MetricCard from "../../components/MetricCard"
 import FrequencyTable from "../../components/FrequencyTable";

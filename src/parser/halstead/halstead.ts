@@ -1,5 +1,5 @@
-import type { FrequencyItem, HalsteadMetrics } from "./types";
-import { CONTROL_OPERATORS, IGNORED_WORDS, TYPE_NAMES, SYMBOL_OPERATORS }  from "./config";
+import type { FrequencyItem, HalsteadMetrics } from "./types.ts";
+import { CONTROL_OPERATORS, IGNORED_WORDS, TYPE_NAMES, SYMBOL_OPERATORS }  from "./config.ts";
 
 const ESCAPED_OPERATORS = SYMBOL_OPERATORS
     .map((operator) => operator.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))

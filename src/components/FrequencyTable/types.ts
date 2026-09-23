@@ -1,4 +1,4 @@
-import type { HalsteadMetrics } from "../../parser/types";
+import type { HalsteadMetrics } from "../../parser/halstead/types.ts";
 
 export interface FrequencyTableProps {
     title: string;
