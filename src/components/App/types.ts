@@ -1,6 +1,6 @@
-import * as React from "react";
+import type { ReactNode } from "react";
 
 export interface RouteType {
     path: string;
-    element: React.ElementType;
+    element: ReactNode;
 }
