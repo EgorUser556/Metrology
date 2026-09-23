@@ -1,5 +1,6 @@
 import { Route, Routes } from "react-router";
 import Header from "../Header";
+import { routes } from "./config.tsx";
 
 const App = () => {
     return (

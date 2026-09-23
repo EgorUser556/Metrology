@@ -1,4 +1,4 @@
-import { RouteType } from './types';
+import type { RouteType } from './types';
 import Lab1 from "../../pages/Lab1";
 import Lab2 from "../../pages/Lab2";
 
