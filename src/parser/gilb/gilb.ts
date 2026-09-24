@@ -234,11 +234,18 @@ const countStatementOperators = (tokens: RustToken[]): number => {
             continue;
         }
 
-        if (EXPRESSION_OPERATORS.has(current)) {
+        const previous = tokens[index - 1]?.value ?? "";
+        const afterNext = tokens[index + 1]?.value ?? "";
+
+        const isMacroBang =
+            current === "!" &&
+            isIdentifier(previous) &&
+            afterNext === "(";
+
+        if (EXPRESSION_OPERATORS.has(current) && !isMacroBang) {
             total += 1;
             continue;
         }
-
         if (
             isIdentifier(current) &&
             next === "(" &&
@@ -458,14 +465,20 @@ export const analyzeGilb = (code: string): GilbMetrics => {
 
     const countedTokens = tokens.filter((token, index) => {
         const current = token.value;
+        const previous = tokens[index - 1]?.value ?? "";
         const next = tokens[index + 1]?.value ?? "";
         const next2 = tokens[index + 2]?.value ?? "";
+
+        const isMacroBang =
+            current === "!" &&
+            isIdentifier(previous) &&
+            next === "(";
 
         return (
             SIMPLE_STATEMENT_KEYWORDS.has(current) ||
             CONTROL_STATEMENT_KEYWORDS.has(current) ||
             ASSIGNMENT_TOKENS.has(current) ||
-            EXPRESSION_OPERATORS.has(current) ||
+            (EXPRESSION_OPERATORS.has(current) && !isMacroBang) ||
             (
                 isIdentifier(current) &&
                 next === "(" &&
