@@ -1,40 +1,85 @@
-export const sampleRustCode = `fn classify(value: i32) -> i32 {
-    let result = 0;
+export const sampleRustCode = `let mut result = 0;
+let mut counter = 0;
+let mode = 2;
 
-    match value {
-        0 => { result = 10; },
-        1 | 2 => { result = 20; },
-        3 => { result = 30; },
-        _ => { result = 40; },
-    }
+match mode {
+    0 => {
+        if result < 10 {
+            while counter < 5 {
+                if counter % 2 == 0 {
+                    result += counter;
+                } else {
+                    result -= 1;
+                }
 
-    return result;
-}
-
-fn main() {
-    let mut sum = 0;
-
-    for number in 1..=5 {
-        if number % 2 == 0 {
-            sum += number;
-        } else {
-            sum -= 1;
+                counter += 1;
+            }
         }
-    }
+    },
 
-    let mut index = 0;
+    1 | 2 => {
+        for number in 0..5 {
+            match number {
+                0 => {
+                    if result == 0 {
+                        result = 10;
+                    }
+                },
 
-    while index < 3 {
-        if sum > 0 {
-            sum += classify(index);
+                1 | 2 => {
+                    while result < 20 {
+                        if result % 2 == 0 {
+                            result += 3;
+                        } else {
+                            result += 1;
+                        }
+                    }
+                },
+
+                _ => {
+                    if number > 3 {
+                        result += number;
+                    }
+                },
+            }
         }
-        index += 1;
-    }
+    },
 
-    loop {
-        if sum >= 50 {
-            break;
+    3 => {
+        loop {
+            if counter >= 3 {
+                match result {
+                    0 => {
+                        if counter == 3 {
+                            result = 30;
+                        }
+                    },
+
+                    1 | 2 => {
+                        while result < 10 {
+                            result += 1;
+                        }
+                    },
+
+                    _ => {
+                        result += 5;
+                    },
+                }
+
+                break;
+            }
+
+            counter += 1;
         }
-        sum += 1;
-    }
+    },
+
+    _ => {
+        if result < 0 {
+            for number in 1..4 {
+                if number % 2 == 0 {
+                    result += number;
+                } 
+            }
+        }
+    },
 }`;

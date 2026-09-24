@@ -39,7 +39,9 @@ export const tokenizeRust = (code: string): RustToken[] => {
         }
 
         if (code.startsWith("//", index)) {
-            while (index < code.length && code[index] !== "\n") advance();
+            while (index < code.length && code[index] !== "\n") {
+                advance();
+            }
             continue;
         }
 
@@ -47,6 +49,7 @@ export const tokenizeRust = (code: string): RustToken[] => {
             advance();
             advance();
             let depth = 1;
+
             while (index < code.length && depth > 0) {
                 if (code.startsWith("/*", index)) {
                     advance();
@@ -60,6 +63,7 @@ export const tokenizeRust = (code: string): RustToken[] => {
                     advance();
                 }
             }
+
             continue;
         }
 
@@ -69,33 +73,19 @@ export const tokenizeRust = (code: string): RustToken[] => {
         if (char === '"' || char === "'") {
             const quote = advance();
             let value = quote;
+
             while (index < code.length) {
                 const current = advance();
                 value += current;
+
                 if (current === "\\" && index < code.length) {
                     value += advance();
                     continue;
                 }
+
                 if (current === quote) break;
             }
-            push(value, tokenLine, tokenColumn);
-            continue;
-        }
 
-        if (isIdentifierStart(char)) {
-            let value = "";
-            while (index < code.length && isIdentifierPart(code[index])) {
-                value += advance();
-            }
-            push(value, tokenLine, tokenColumn);
-            continue;
-        }
-
-        if (/\d/.test(char)) {
-            let value = "";
-            while (index < code.length && /[\p{L}\p{N}_.]/u.test(code[index])) {
-                value += advance();
-            }
             push(value, tokenLine, tokenColumn);
             continue;
         }
@@ -105,8 +95,49 @@ export const tokenizeRust = (code: string): RustToken[] => {
         );
 
         if (compound) {
-            for (let count = 0; count < compound.length; count += 1) advance();
+            for (let count = 0; count < compound.length; count += 1) {
+                advance();
+            }
+
             push(compound, tokenLine, tokenColumn);
+            continue;
+        }
+
+        if (isIdentifierStart(char)) {
+            let value = "";
+
+            while (index < code.length && isIdentifierPart(code[index])) {
+                value += advance();
+            }
+
+            push(value, tokenLine, tokenColumn);
+            continue;
+        }
+
+        if (/\d/.test(char)) {
+            let value = "";
+
+            while (index < code.length && /\d/.test(code[index])) {
+                value += advance();
+            }
+
+            if (
+                code[index] === "." &&
+                code[index + 1] !== "." &&
+                /\d/.test(code[index + 1] ?? "")
+            ) {
+                value += advance();
+
+                while (index < code.length && /\d/.test(code[index])) {
+                    value += advance();
+                }
+            }
+
+            while (index < code.length && /[\p{L}\p{N}_]/u.test(code[index])) {
+                value += advance();
+            }
+
+            push(value, tokenLine, tokenColumn);
             continue;
         }
 

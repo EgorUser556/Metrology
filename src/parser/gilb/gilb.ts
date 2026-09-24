@@ -19,26 +19,37 @@ const buildPairMaps = (tokens: RustToken[]): PairMaps => {
 
     tokens.forEach((token, index) => {
         if (token.value === "{") stack.push(index);
+
         if (token.value === "}") {
             const opening = stack.pop();
-            if (opening !== undefined) braces.set(opening, index);
+
+            if (opening !== undefined) {
+                braces.set(opening, index);
+            }
         }
     });
 
     return { braces };
 };
 
-const findBodyOpen = (tokens: RustToken[], start: number, end: number): number => {
+const findBodyOpen = (
+    tokens: RustToken[],
+    start: number,
+    end: number,
+): number => {
     let parentheses = 0;
     let brackets = 0;
 
     for (let index = start; index < end; index += 1) {
         const value = tokens[index].value;
+
         if (value === "(") parentheses += 1;
         else if (value === ")") parentheses -= 1;
         else if (value === "[") brackets += 1;
         else if (value === "]") brackets -= 1;
-        else if (value === "{" && parentheses === 0 && brackets === 0) return index;
+        else if (value === "{" && parentheses === 0 && brackets === 0) {
+            return index;
+        }
     }
 
     return -1;
@@ -53,7 +64,10 @@ const readMatchArms = (
     let cursor = bodyOpen + 1;
 
     while (cursor < bodyClose) {
-        while (cursor < bodyClose && tokens[cursor].value === ",") cursor += 1;
+        while (cursor < bodyClose && tokens[cursor].value === ",") {
+            cursor += 1;
+        }
+
         if (cursor >= bodyClose) break;
 
         const patternStart = cursor;
@@ -64,13 +78,19 @@ const readMatchArms = (
 
         for (; cursor < bodyClose; cursor += 1) {
             const value = tokens[cursor].value;
+
             if (value === "(") parentheses += 1;
             else if (value === ")") parentheses -= 1;
             else if (value === "[") brackets += 1;
             else if (value === "]") brackets -= 1;
             else if (value === "{") braces += 1;
             else if (value === "}") braces -= 1;
-            else if (value === "=>" && parentheses === 0 && brackets === 0 && braces === 0) {
+            else if (
+                value === "=>" &&
+                parentheses === 0 &&
+                brackets === 0 &&
+                braces === 0
+            ) {
                 arrow = cursor;
                 break;
             }
@@ -86,16 +106,27 @@ const readMatchArms = (
 
         for (; cursor < bodyClose; cursor += 1) {
             const value = tokens[cursor].value;
+
             if (value === "(") parentheses += 1;
             else if (value === ")") parentheses -= 1;
             else if (value === "[") brackets += 1;
             else if (value === "]") brackets -= 1;
             else if (value === "{") braces += 1;
             else if (value === "}") braces -= 1;
-            else if (value === "," && parentheses === 0 && brackets === 0 && braces === 0) break;
+            else if (
+                value === "," &&
+                parentheses === 0 &&
+                brackets === 0 &&
+                braces === 0
+            ) {
+                break;
+            }
         }
 
-        const pattern = tokens.slice(patternStart, arrow).map((token) => token.value);
+        const pattern = tokens
+            .slice(patternStart, arrow)
+            .map((token) => token.value);
+
         arms.push({
             patternStart,
             arrow,
@@ -110,26 +141,124 @@ const readMatchArms = (
     return arms;
 };
 
+const SIMPLE_STATEMENT_KEYWORDS = new Set([
+    "let",
+    "return",
+    "break",
+    "continue",
+]);
+
+const CONTROL_STATEMENT_KEYWORDS = new Set([
+    "if",
+    "for",
+    "while",
+    "loop",
+    "match",
+]);
+
+const ASSIGNMENT_TOKENS = new Set([
+    "=",
+    "+=",
+    "-=",
+    "*=",
+    "/=",
+    "%=",
+    "&=",
+    "|=",
+    "^=",
+    "<<=",
+    ">>=",
+]);
+
+const EXPRESSION_OPERATORS = new Set([
+    "+",
+    "-",
+    "*",
+    "/",
+    "%",
+    "==",
+    "!=",
+    "<",
+    ">",
+    "<=",
+    ">=",
+    "&&",
+    "||",
+    "!",
+    "&",
+    "|",
+    "^",
+    "<<",
+    ">>",
+    "..",
+    "..=",
+    "?",
+    "as",
+]);
+
+const CALL_EXCLUDED_KEYWORDS = new Set([
+    "if",
+    "else",
+    "match",
+    "for",
+    "while",
+    "loop",
+    "return",
+    "let",
+    "fn",
+]);
+
+const isIdentifier = (value: string): boolean =>
+    /^[\p{L}_][\p{L}\p{N}_]*$/u.test(value);
+
 const countStatementOperators = (tokens: RustToken[]): number => {
-    const ignoredSemicolons = new Set<number>();
-    const ignoredItems = new Set(["use", "mod", "type", "extern"]);
+    let total = 0;
 
     for (let index = 0; index < tokens.length; index += 1) {
-        if (!ignoredItems.has(tokens[index].value)) continue;
+        const current = tokens[index].value;
+        const next = tokens[index + 1]?.value ?? "";
+        const next2 = tokens[index + 2]?.value ?? "";
 
-        for (let cursor = index + 1; cursor < tokens.length; cursor += 1) {
-            if (tokens[cursor].value === ";") {
-                ignoredSemicolons.add(cursor);
-                break;
-            }
+        if (SIMPLE_STATEMENT_KEYWORDS.has(current)) {
+            total += 1;
+            continue;
+        }
+
+        if (CONTROL_STATEMENT_KEYWORDS.has(current)) {
+            total += 1;
+            continue;
+        }
+
+        if (ASSIGNMENT_TOKENS.has(current)) {
+            total += 1;
+            continue;
+        }
+
+        if (EXPRESSION_OPERATORS.has(current)) {
+            total += 1;
+            continue;
+        }
+
+        if (
+            isIdentifier(current) &&
+            next === "(" &&
+            !CALL_EXCLUDED_KEYWORDS.has(current)
+        ) {
+            total += 1;
+            continue;
+        }
+
+        if (
+            isIdentifier(current) &&
+            next === "!" &&
+            next2 === "("
+        ) {
+            total += 1;
+            continue;
         }
     }
 
-    return tokens.reduce(
-        (total, token, index) =>
-            total + (token.value === ";" && !ignoredSemicolons.has(index) ? 1 : 0),
-        0,
-    );
+    return total;
 };
 
 export const analyzeGilb = (code: string): GilbMetrics => {
@@ -137,7 +266,12 @@ export const analyzeGilb = (code: string): GilbMetrics => {
     const pairs = buildPairMaps(tokens);
     const branches: BranchInfo[] = [];
 
-    const addBranch = (kind: BranchKind, label: string, index: number, level: number) => {
+    const addBranch = (
+        kind: BranchKind,
+        label: string,
+        index: number,
+        level: number,
+    ) => {
         branches.push({
             id: branches.length + 1,
             kind,
@@ -156,6 +290,7 @@ export const analyzeGilb = (code: string): GilbMetrics => {
             if (value === "fn") {
                 const bodyOpen = findBodyOpen(tokens, index + 1, end);
                 const bodyClose = pairs.braces.get(bodyOpen);
+
                 if (bodyOpen >= 0 && bodyClose !== undefined) {
                     analyzeRange(bodyOpen + 1, bodyClose, depth);
                     index = bodyClose + 1;
@@ -166,11 +301,16 @@ export const analyzeGilb = (code: string): GilbMetrics => {
             if (value === "if") {
                 const analyzeIf = (ifIndex: number, ifDepth: number): number => {
                     addBranch("if", "if", ifIndex, ifDepth);
+
                     const bodyOpen = findBodyOpen(tokens, ifIndex + 1, end);
                     const bodyClose = pairs.braces.get(bodyOpen);
-                    if (bodyOpen < 0 || bodyClose === undefined) return ifIndex + 1;
+
+                    if (bodyOpen < 0 || bodyClose === undefined) {
+                        return ifIndex + 1;
+                    }
 
                     analyzeRange(bodyOpen + 1, bodyClose, ifDepth + 1);
+
                     let next = bodyClose + 1;
 
                     if (tokens[next]?.value === "else") {
@@ -181,8 +321,13 @@ export const analyzeGilb = (code: string): GilbMetrics => {
                         if (tokens[next + 1]?.value === "{") {
                             const elseOpen = next + 1;
                             const elseClose = pairs.braces.get(elseOpen);
+
                             if (elseClose !== undefined) {
-                                analyzeRange(elseOpen + 1, elseClose, ifDepth + 1);
+                                analyzeRange(
+                                    elseOpen + 1,
+                                    elseClose,
+                                    ifDepth + 1,
+                                );
                                 next = elseClose + 1;
                             }
                         }
@@ -198,8 +343,10 @@ export const analyzeGilb = (code: string): GilbMetrics => {
             if (value === "for" || value === "while" || value === "loop") {
                 const kind = value as "for" | "while" | "loop";
                 addBranch(kind, kind, index, depth);
+
                 const bodyOpen = findBodyOpen(tokens, index + 1, end);
                 const bodyClose = pairs.braces.get(bodyOpen);
+
                 if (bodyOpen >= 0 && bodyClose !== undefined) {
                     analyzeRange(bodyOpen + 1, bodyClose, depth + 1);
                     index = bodyClose + 1;
@@ -213,37 +360,71 @@ export const analyzeGilb = (code: string): GilbMetrics => {
 
                 if (bodyOpen >= 0 && bodyClose !== undefined) {
                     const arms = readMatchArms(tokens, bodyOpen, bodyClose);
-                    const defaultIndex = arms.findIndex((arm) => arm.isDefault);
-                    const fallbackIndex = defaultIndex >= 0
-                        ? defaultIndex
-                        : Math.max(arms.length - 1, 0);
                     let conditionNumber = 0;
 
-                    arms.forEach((arm, armIndex) => {
-                        const isFallback = armIndex === fallbackIndex;
+                    for (const arm of arms) {
+                        if (arm.isDefault) {
+                            const defaultBodyDepth = depth + conditionNumber;
+                            const firstToken = tokens[arm.expressionStart]?.value;
 
-                        if (!isFallback) {
-                            const level = depth + conditionNumber;
-                            const pattern = tokens
-                                .slice(arm.patternStart, arm.arrow)
-                                .map((token) => token.value)
-                                .join(" ");
-                            addBranch("match-arm", `match: ${pattern}`, arm.patternStart, level);
-                            conditionNumber += 1;
+                            if (firstToken === "{") {
+                                const close = pairs.braces.get(arm.expressionStart);
+
+                                if (close !== undefined) {
+                                    analyzeRange(
+                                        arm.expressionStart + 1,
+                                        close,
+                                        defaultBodyDepth,
+                                    );
+                                }
+                            } else {
+                                analyzeRange(
+                                    arm.expressionStart,
+                                    arm.expressionEnd,
+                                    defaultBodyDepth,
+                                );
+                            }
+
+                            continue;
                         }
 
-                        const armDepth = depth + conditionNumber;
-                        const first = tokens[arm.expressionStart]?.value;
+                        const conditionLevel = depth + conditionNumber;
 
-                        if (first === "{") {
+                        const pattern = tokens
+                            .slice(arm.patternStart, arm.arrow)
+                            .map((token) => token.value)
+                            .join(" ");
+
+                        addBranch(
+                            "match-arm",
+                            `match: ${pattern}`,
+                            arm.patternStart,
+                            conditionLevel,
+                        );
+
+                        const armBodyDepth = conditionLevel + 1;
+                        const firstToken = tokens[arm.expressionStart]?.value;
+
+                        if (firstToken === "{") {
                             const close = pairs.braces.get(arm.expressionStart);
+
                             if (close !== undefined) {
-                                analyzeRange(arm.expressionStart + 1, close, armDepth);
+                                analyzeRange(
+                                    arm.expressionStart + 1,
+                                    close,
+                                    armBodyDepth,
+                                );
                             }
                         } else {
-                            analyzeRange(arm.expressionStart, arm.expressionEnd, armDepth);
+                            analyzeRange(
+                                arm.expressionStart,
+                                arm.expressionEnd,
+                                armBodyDepth,
+                            );
                         }
-                    });
+
+                        conditionNumber += 1;
+                    }
 
                     index = bodyClose + 1;
                     continue;
@@ -252,6 +433,7 @@ export const analyzeGilb = (code: string): GilbMetrics => {
 
             if (value === "{") {
                 const close = pairs.braces.get(index);
+
                 if (close !== undefined) {
                     analyzeRange(index + 1, close, depth);
                     index = close + 1;
@@ -266,13 +448,57 @@ export const analyzeGilb = (code: string): GilbMetrics => {
     analyzeRange(0, tokens.length, 0);
 
     const absoluteComplexity = branches.length;
-    const totalOperators = countStatementOperators(tokens) + absoluteComplexity;
-    const relativeComplexity = totalOperators === 0
-        ? 0
-        : absoluteComplexity / totalOperators;
-    const maxNestingLevel = branches.length === 0
-        ? 0
-        : Math.max(...branches.map((branch) => branch.level));
+
+    const matchArrowCount = tokens.filter(
+        (token) => token.value === "=>",
+    ).length;
+
+    const totalOperators =
+        countStatementOperators(tokens) + matchArrowCount;
+
+    const countedTokens = tokens.filter((token, index) => {
+        const current = token.value;
+        const next = tokens[index + 1]?.value ?? "";
+        const next2 = tokens[index + 2]?.value ?? "";
+
+        return (
+            SIMPLE_STATEMENT_KEYWORDS.has(current) ||
+            CONTROL_STATEMENT_KEYWORDS.has(current) ||
+            ASSIGNMENT_TOKENS.has(current) ||
+            EXPRESSION_OPERATORS.has(current) ||
+            (
+                isIdentifier(current) &&
+                next === "(" &&
+                !CALL_EXCLUDED_KEYWORDS.has(current)
+            ) ||
+            (
+                isIdentifier(current) &&
+                next === "!" &&
+                next2 === "("
+            )
+        );
+    });
+
+    console.table(
+        countedTokens.map((token) => ({
+            line: token.line,
+            operator: token.value,
+        })),
+    );
+
+    console.log("Операторы без =>:", countedTokens.length);
+    console.log("Все =>:", matchArrowCount);
+    console.log("Итог N:", totalOperators);
+
+    const relativeComplexity =
+        totalOperators === 0
+            ? 0
+            : absoluteComplexity / totalOperators;
+
+    const maxNestingLevel =
+        branches.length === 0
+            ? 0
+            : Math.max(...branches.map((branch) => branch.level));
 
     return {
         absoluteComplexity,
