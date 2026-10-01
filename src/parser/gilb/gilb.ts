@@ -64,7 +64,10 @@ const readMatchArms = (
     let cursor = bodyOpen + 1;
 
     while (cursor < bodyClose) {
-        while (cursor < bodyClose && tokens[cursor].value === ",") {
+        while (
+            cursor < bodyClose &&
+            (tokens[cursor].value === "," || tokens[cursor].value === ";")
+            ) {
             cursor += 1;
         }
 
@@ -76,7 +79,7 @@ const readMatchArms = (
         let brackets = 0;
         let braces = 0;
 
-        for (; cursor < bodyClose; cursor += 1) {
+        while (cursor < bodyClose) {
             const value = tokens[cursor].value;
 
             if (value === "(") parentheses += 1;
@@ -85,7 +88,8 @@ const readMatchArms = (
             else if (value === "]") brackets -= 1;
             else if (value === "{") braces += 1;
             else if (value === "}") braces -= 1;
-            else if (
+
+            if (
                 value === "=>" &&
                 parentheses === 0 &&
                 brackets === 0 &&
@@ -94,9 +98,11 @@ const readMatchArms = (
                 arrow = cursor;
                 break;
             }
+
+            cursor += 1;
         }
 
-        if (arrow < 0) break;
+        if (arrow === -1) break;
 
         const expressionStart = arrow + 1;
         cursor = expressionStart;
@@ -104,7 +110,7 @@ const readMatchArms = (
         brackets = 0;
         braces = 0;
 
-        for (; cursor < bodyClose; cursor += 1) {
+        while (cursor < bodyClose) {
             const value = tokens[cursor].value;
 
             if (value === "(") parentheses += 1;
@@ -113,7 +119,8 @@ const readMatchArms = (
             else if (value === "]") brackets -= 1;
             else if (value === "{") braces += 1;
             else if (value === "}") braces -= 1;
-            else if (
+
+            if (
                 value === "," &&
                 parentheses === 0 &&
                 brackets === 0 &&
@@ -121,6 +128,8 @@ const readMatchArms = (
             ) {
                 break;
             }
+
+            cursor += 1;
         }
 
         const pattern = tokens
@@ -135,7 +144,10 @@ const readMatchArms = (
             isDefault: pattern.length === 1 && pattern[0] === "_",
         });
 
-        cursor += 1;
+        // cursor стоит на "," либо на bodyClose.
+        if (tokens[cursor]?.value === ",") {
+            cursor += 1;
+        }
     }
 
     return arms;
@@ -366,71 +378,140 @@ export const analyzeGilb = (code: string): GilbMetrics => {
                 const bodyClose = pairs.braces.get(bodyOpen);
 
                 if (bodyOpen >= 0 && bodyClose !== undefined) {
-                    const arms = readMatchArms(tokens, bodyOpen, bodyClose);
+                    let cursor = bodyOpen + 1;
                     let conditionNumber = 0;
 
-                    for (const arm of arms) {
-                        if (arm.isDefault) {
-                            const defaultBodyDepth = depth + conditionNumber;
-                            const firstToken = tokens[arm.expressionStart]?.value;
+                    while (cursor < bodyClose) {
+                        // Пропускаем необязательные разделители веток.
+                        while (
+                            cursor < bodyClose &&
+                            (
+                                tokens[cursor].value === "," ||
+                                tokens[cursor].value === ";"
+                            )
+                            ) {
+                            cursor += 1;
+                        }
 
-                            if (firstToken === "{") {
-                                const close = pairs.braces.get(arm.expressionStart);
+                        if (cursor >= bodyClose) break;
 
-                                if (close !== undefined) {
-                                    analyzeRange(
-                                        arm.expressionStart + 1,
-                                        close,
-                                        defaultBodyDepth,
-                                    );
-                                }
-                            } else {
-                                analyzeRange(
-                                    arm.expressionStart,
-                                    arm.expressionEnd,
-                                    defaultBodyDepth,
-                                );
+                        const armStart = cursor;
+                        let arrow = -1;
+                        let parentheses = 0;
+                        let brackets = 0;
+                        let braces = 0;
+
+                        // Ищем => текущей ветки match.
+                        while (cursor < bodyClose) {
+                            const current = tokens[cursor].value;
+
+                            if (current === "(") parentheses += 1;
+                            else if (current === ")") parentheses -= 1;
+                            else if (current === "[") brackets += 1;
+                            else if (current === "]") brackets -= 1;
+                            else if (current === "{") braces += 1;
+                            else if (current === "}") braces -= 1;
+
+                            if (
+                                current === "=>" &&
+                                parentheses === 0 &&
+                                brackets === 0 &&
+                                braces === 0
+                            ) {
+                                arrow = cursor;
+                                break;
                             }
 
+                            cursor += 1;
+                        }
+
+                        if (arrow < 0) break;
+
+                        const pattern = tokens
+                            .slice(armStart, arrow)
+                            .map((token) => token.value)
+                            .join(" ")
+                            .trim();
+
+                        const isDefault = pattern === "_";
+                        const conditionLevel = depth + conditionNumber;
+
+                        // Default-ветка не увеличивает CL.
+                        if (!isDefault) {
+                            addBranch(
+                                "match-arm",
+                                `match: ${pattern}`,
+                                armStart,
+                                conditionLevel,
+                            );
+
+                            conditionNumber += 1;
+                        }
+
+                        const armBodyDepth = isDefault
+                            ? depth + conditionNumber
+                            : conditionLevel + 1;
+
+                        const expressionStart = arrow + 1;
+
+                        // Ветка с блочным телом: pattern => { ... }
+                        if (tokens[expressionStart]?.value === "{") {
+                            const expressionClose =
+                                pairs.braces.get(expressionStart);
+
+                            if (expressionClose === undefined) {
+                                cursor = expressionStart + 1;
+                                continue;
+                            }
+
+                            analyzeRange(
+                                expressionStart + 1,
+                                expressionClose,
+                                armBodyDepth,
+                            );
+
+                            // Важно: после блочной ветки запятая необязательна.
+                            cursor = expressionClose + 1;
                             continue;
                         }
 
-                        const conditionLevel = depth + conditionNumber;
+                        // Ветка с выражением: pattern => expression,
+                        cursor = expressionStart;
+                        parentheses = 0;
+                        brackets = 0;
+                        braces = 0;
 
-                        const pattern = tokens
-                            .slice(arm.patternStart, arm.arrow)
-                            .map((token) => token.value)
-                            .join(" ");
+                        while (cursor < bodyClose) {
+                            const current = tokens[cursor].value;
 
-                        addBranch(
-                            "match-arm",
-                            `match: ${pattern}`,
-                            arm.patternStart,
-                            conditionLevel,
-                        );
+                            if (current === "(") parentheses += 1;
+                            else if (current === ")") parentheses -= 1;
+                            else if (current === "[") brackets += 1;
+                            else if (current === "]") brackets -= 1;
+                            else if (current === "{") braces += 1;
+                            else if (current === "}") braces -= 1;
 
-                        const armBodyDepth = conditionLevel + 1;
-                        const firstToken = tokens[arm.expressionStart]?.value;
-
-                        if (firstToken === "{") {
-                            const close = pairs.braces.get(arm.expressionStart);
-
-                            if (close !== undefined) {
-                                analyzeRange(
-                                    arm.expressionStart + 1,
-                                    close,
-                                    armBodyDepth,
-                                );
+                            if (
+                                current === "," &&
+                                parentheses === 0 &&
+                                brackets === 0 &&
+                                braces === 0
+                            ) {
+                                break;
                             }
-                        } else {
-                            analyzeRange(
-                                arm.expressionStart,
-                                arm.expressionEnd,
-                                armBodyDepth,
-                            );
+
+                            cursor += 1;
                         }
 
-                        conditionNumber += 1;
+                        analyzeRange(
+                            expressionStart,
+                            cursor,
+                            armBodyDepth,
+                        );
+
+                        if (tokens[cursor]?.value === ",") {
+                            cursor += 1;
+                        }
                     }
 
                     index = bodyClose + 1;
