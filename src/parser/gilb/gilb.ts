@@ -5,14 +5,6 @@ type PairMaps = {
     braces: Map<number, number>;
 };
 
-type MatchArm = {
-    patternStart: number;
-    arrow: number;
-    expressionStart: number;
-    expressionEnd: number;
-    isDefault: boolean;
-};
-
 const buildPairMaps = (tokens: RustToken[]): PairMaps => {
     const braces = new Map<number, number>();
     const stack: number[] = [];
@@ -53,104 +45,6 @@ const findBodyOpen = (
     }
 
     return -1;
-};
-
-const readMatchArms = (
-    tokens: RustToken[],
-    bodyOpen: number,
-    bodyClose: number,
-): MatchArm[] => {
-    const arms: MatchArm[] = [];
-    let cursor = bodyOpen + 1;
-
-    while (cursor < bodyClose) {
-        while (
-            cursor < bodyClose &&
-            (tokens[cursor].value === "," || tokens[cursor].value === ";")
-            ) {
-            cursor += 1;
-        }
-
-        if (cursor >= bodyClose) break;
-
-        const patternStart = cursor;
-        let arrow = -1;
-        let parentheses = 0;
-        let brackets = 0;
-        let braces = 0;
-
-        while (cursor < bodyClose) {
-            const value = tokens[cursor].value;
-
-            if (value === "(") parentheses += 1;
-            else if (value === ")") parentheses -= 1;
-            else if (value === "[") brackets += 1;
-            else if (value === "]") brackets -= 1;
-            else if (value === "{") braces += 1;
-            else if (value === "}") braces -= 1;
-
-            if (
-                value === "=>" &&
-                parentheses === 0 &&
-                brackets === 0 &&
-                braces === 0
-            ) {
-                arrow = cursor;
-                break;
-            }
-
-            cursor += 1;
-        }
-
-        if (arrow === -1) break;
-
-        const expressionStart = arrow + 1;
-        cursor = expressionStart;
-        parentheses = 0;
-        brackets = 0;
-        braces = 0;
-
-        while (cursor < bodyClose) {
-            const value = tokens[cursor].value;
-
-            if (value === "(") parentheses += 1;
-            else if (value === ")") parentheses -= 1;
-            else if (value === "[") brackets += 1;
-            else if (value === "]") brackets -= 1;
-            else if (value === "{") braces += 1;
-            else if (value === "}") braces -= 1;
-
-            if (
-                value === "," &&
-                parentheses === 0 &&
-                brackets === 0 &&
-                braces === 0
-            ) {
-                break;
-            }
-
-            cursor += 1;
-        }
-
-        const pattern = tokens
-            .slice(patternStart, arrow)
-            .map((token) => token.value);
-
-        arms.push({
-            patternStart,
-            arrow,
-            expressionStart,
-            expressionEnd: cursor,
-            isDefault: pattern.length === 1 && pattern[0] === "_",
-        });
-
-        // cursor стоит на "," либо на bodyClose.
-        if (tokens[cursor]?.value === ",") {
-            cursor += 1;
-        }
-    }
-
-    return arms;
 };
 
 const SIMPLE_STATEMENT_KEYWORDS = new Set([
@@ -454,7 +348,7 @@ export const analyzeGilb = (code: string): GilbMetrics => {
 
                         const expressionStart = arrow + 1;
 
-                        // Ветка с блочным телом: pattern => { ... }
+                        // Ветка с блочным телом: pattern => {...}
                         if (tokens[expressionStart]?.value === "{") {
                             const expressionClose =
                                 pairs.braces.get(expressionStart);
