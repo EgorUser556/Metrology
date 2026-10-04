@@ -212,44 +212,74 @@ export const analyzeGilb = (code: string): GilbMetrics => {
             }
 
             if (value === "if") {
-                const analyzeIf = (ifIndex: number, ifDepth: number): number => {
+                const analyzeIf = (
+                    ifIndex: number,
+                    ifDepth: number,
+                    finalElseBodyDepth: number,
+                ): number => {
                     addBranch("if", "if", ifIndex, ifDepth);
 
-                    const bodyOpen = findBodyOpen(tokens, ifIndex + 1, end);
+                    const bodyOpen = findBodyOpen(
+                        tokens,
+                        ifIndex + 1,
+                        end,
+                    );
+
                     const bodyClose = pairs.braces.get(bodyOpen);
 
                     if (bodyOpen < 0 || bodyClose === undefined) {
                         return ifIndex + 1;
                     }
 
-                    analyzeRange(bodyOpen + 1, bodyClose, ifDepth + 1);
+                    // Тело текущего if находится на уровень глубже
+                    // самого условного оператора.
+                    analyzeRange(
+                        bodyOpen + 1,
+                        bodyClose,
+                        ifDepth + 1,
+                    );
 
                     let next = bodyClose + 1;
 
-                    if (tokens[next]?.value === "else") {
-                        if (tokens[next + 1]?.value === "if") {
-                            return analyzeIf(next + 1, ifDepth + 1);
-                        }
+                    if (tokens[next]?.value !== "else") {
+                        return next;
+                    }
 
-                        if (tokens[next + 1]?.value === "{") {
-                            const elseOpen = next + 1;
-                            const elseClose = pairs.braces.get(elseOpen);
+                    // Цепочка else if.
+                    if (tokens[next + 1]?.value === "if") {
+                        return analyzeIf(
+                            next + 1,
+                            ifDepth + 1,
+                            finalElseBodyDepth,
+                        );
+                    }
 
-                            if (elseClose !== undefined) {
-                                analyzeRange(
-                                    elseOpen + 1,
-                                    elseClose,
-                                    ifDepth + 1,
-                                );
-                                next = elseClose + 1;
-                            }
+                    // Финальный else относится ко всей цепочке,
+                    // поэтому используем глубину относительно первого if.
+                    if (tokens[next + 1]?.value === "{") {
+                        const elseOpen = next + 1;
+                        const elseClose = pairs.braces.get(elseOpen);
+
+                        if (elseClose !== undefined) {
+                            analyzeRange(
+                                elseOpen + 1,
+                                elseClose,
+                                finalElseBodyDepth,
+                            );
+
+                            next = elseClose + 1;
                         }
                     }
 
                     return next;
                 };
 
-                index = analyzeIf(index, depth);
+                index = analyzeIf(
+                    index,
+                    depth,
+                    depth + 1,
+                );
+
                 continue;
             }
 
