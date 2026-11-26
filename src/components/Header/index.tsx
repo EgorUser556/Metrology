@@ -4,6 +4,7 @@ import "./styled.css";
 const navigationItems = [
     { to: "/", label: "ЛР1", end: true },
     { to: "/lab-2", label: "ЛР2", end: false },
+    { to: "/lab-3", label: "ЛР3", end: false },
 ];
 
 const Header = () => {
